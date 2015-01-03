@@ -163,28 +163,6 @@ class CallLogger {
                         long duration, int subscription, int durationType) {
         final boolean isEmergencyNumber = PhoneNumberUtils.isLocalEmergencyNumber(number,
                 mApplication);
-
-        // On some devices, to avoid accidental redialing of
-        // emergency numbers, we *never* log emergency calls to
-        // the Call Log.  (This behavior is set on a per-product
-        // basis, based on carrier requirements.)
-        final boolean okToLogEmergencyNumber =
-            mApplication.getResources().getBoolean(
-                        R.bool.allow_emergency_numbers_in_call_log);
-
-        // Don't log emergency numbers if the device doesn't allow it,
-        boolean isOkToLogThisCall = !isEmergencyNumber || okToLogEmergencyNumber;
-
-        if (isOkToLogThisCall) {
-            if (DBG) {
-                log("sending Calllog entry: " + ci + ", " + PhoneUtils.toLogSafePhoneNumber(number)
-                    + "," + presentation + ", " + callType + ", " + start + ", " + duration);
-            }
-
-            CallLogAsync.AddCallArgs args = new CallLogAsync.AddCallArgs(mApplication, ci, number,
-                    presentation, callType, start, duration, subscription, durationType);
-            mCallLog.addCall(args);
-        }
     }
 
     /**
