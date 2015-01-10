@@ -93,46 +93,9 @@ class CallLogger {
         final boolean isOtaspNumber = TelephonyCapabilities.supportsOtasp(phone)
                 && phone.isOtaSpNumber(number);
 
-        int durationType = Calls.DURATION_TYPE_ACTIVE;
-        if (Calls.OUTGOING_TYPE == callLogType && c instanceof CdmaConnection
-                && !((CdmaConnection) c).isConnectionTimerReset()) {
-            durationType = Calls.DURATION_TYPE_CALLOUT;
-        }
-
         // Don't log OTASP calls.
         if (!isOtaspNumber) {
-            //get the current phone type: csvoice, ims
-            if (DBG) {
-                log("CallLogger: logCall: callLogType in =" + callLogType);
-                log("CallLogger: logCall: phoneType =" + phone.getPhoneType());
-            }
-            if (SystemProperties.getBoolean("net.lte.VT_LOOPBACK_ENABLE", false) ||
-                phone.getPhoneType() == PhoneConstants.PHONE_TYPE_IMS){
-                switch(callLogType){
-                    case Calls.INCOMING_TYPE:
-                        callLogType = INCOMING_IMS_TYPE;
-                        break;
-                    case Calls.OUTGOING_TYPE:
-                        callLogType = OUTGOING_IMS_TYPE;
-                        break;
-                    case Calls.MISSED_TYPE:
-                        callLogType = MISSED_IMS_TYPE;
-                        break;
-                }
-            }
-            if (DBG) {
-                log("CallLogger: logCall: callLogType out =" + callLogType);
-            }
-            // If calling sub is absent, use invalid card index to hide the
-            // card index indicator in calllog.
-            if (MSimTelephonyManager.getDefault().getSimState(c.getCall()
-                    .getPhone().getSubscription()) == TelephonyManager.SIM_STATE_ABSENT) {
-                logCall(ci, logNumber, presentation, callLogType, date, duration,
-                        INVALID_SUBSCRIPTION, durationType);
-            } else {
-                logCall(ci, logNumber, presentation, callLogType, date, duration, c.getCall()
-                        .getPhone().getSubscription(), durationType);
-            }
+            logCall(ci, logNumber, presentation, callLogType, date, duration);
         }
     }
 
@@ -160,12 +123,31 @@ class CallLogger {
      * Logs a call to the call from the parameters passed in.
      */
     public void logCall(CallerInfo ci, String number, int presentation, int callType, long start,
-                        long duration, int subscription, int durationType) {
+                        long duration) {
         final boolean isEmergencyNumber = PhoneNumberUtils.isLocalEmergencyNumber(number,
                 mApplication);
+
+        // On some devices, to avoid accidental redialing of
+        // emergency numbers, we *never* log emergency calls to
+        // the Call Log.  (This behavior is set on a per-product
+        // basis, based on carrier requirements.)
+        final boolean okToLogEmergencyNumber =
+            mApplication.getResources().getBoolean(
+                        R.bool.allow_emergency_numbers_in_call_log);
+
+        // Don't log emergency numbers if the device doesn't allow it,
+        boolean isOkToLogThisCall = !isEmergencyNumber || okToLogEmergencyNumber;
+
+        if (isOkToLogThisCall) {
+            if (DBG) {
+                log("sending Calllog entry: " + ci + ", " + PhoneUtils.toLogSafePhoneNumber(number)
+                    + "," + presentation + ", " + callType + ", " + start + ", " + duration);
+            }
+
             CallLogAsync.AddCallArgs args = new CallLogAsync.AddCallArgs(mApplication, ci, number,
-                    presentation, callType, start, duration, subscription, durationType);
+                    presentation, callType, start, duration);
             mCallLog.addCall(args);
+        }
     }
 
     /**
